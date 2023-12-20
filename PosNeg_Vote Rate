@@ -1,0 +1,35 @@
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import udf
+from pyspark.sql.types import FloatType
+
+# Spark 세션 초기화
+spark = SparkSession.builder.appName("election_analysis").getOrCreate()
+
+# 데이터 프레임 생성
+data = [
+    ("21a", 17.406, 82.594),
+    ("21b", 70.94, 29.06),
+    # 여기에 추가 데이터 입력
+]
+columns = ["party", "positive", "negative"]
+df = spark.createDataFrame(data, columns)
+
+# 가중치를 계산하는 함수 정의
+def calculate_weighted_seats(positive, negative, pos_weight, neg_weight, total_seats, percent):
+    return (positive * pos_weight + negative * neg_weight) * total_seats * percent / 100
+
+# UDF (User Defined Function) 등록
+calculate_seats_udf = udf(calculate_weighted_seats, FloatType())
+
+# 계산에 사용할 가중치 설정
+pos_weight = 2.05937168169761
+neg_weight = 0.582979108753316
+total_seats = 300
+a21_percent = 34.33
+b21_percent = 60
+
+# 데이터 프레임에 UDF 적용
+df = df.withColumn("weighted_seats", calculate_seats_udf(df["positive"], df["negative"], lit(pos_weight), lit(neg_weight), lit(total_seats), lit(a21_percent)))
+
+# 결과 출력
+df.show()
